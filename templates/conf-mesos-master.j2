@@ -4,7 +4,7 @@ export MESOS_QUORUM="{{ mesos_quorum }}"
 export MESOS_WORK_DIR="{{ mesos_work_dir }}"
 export MESOS_PORT="{{ mesos_master_port }}"
 
-# Additional configs
+# Additional config values
 {% for config_item in mesos_master_additional_configs %}
-export MESOS_{{config_item.name}}={{config_item.value}}
+export {{config_item.name}}={{config_item.value}}
 {% endfor %}
