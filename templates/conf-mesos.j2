@@ -3,7 +3,9 @@
 # special options supported by
 # mesos-init-wrapper
 CLUSTER="{{mesos_cluster_name}}"
+{%- if mesos_ip is defined %}
 IP={{mesos_ip}}
+{%- endif %}
 LOGS={{mesos_log_location}}
 ULIMIT="{{mesos_ulimit}}"
 ZK="{{ mesos_zookeeper_masters }}"
