@@ -20,61 +20,89 @@
 - name: Mesos default config file
   template: src=conf-mesos.j2 dest=/etc/default/mesos
   notify:
+  - Restart mesos-master
+  - Cleanup meta/slaves/latest
+  - Restart mesos-slave
+
+- block:
+  - name: Mesos Master config file
+    template: src=conf-mesos-master.j2 dest=/etc/default/mesos-master mode=0644 owner=root group=root
+    notify:
     - Restart mesos-master
-    - Restart mesos-slave
+
+  - name: Mesos master upstart script
+    template: src=init-mesos-master.j2 dest=/etc/init/mesos-master.conf
+    when: ansible_service_mgr == "upstart"
+    notify:
+    - Restart mesos-master
+
+  - name: Mesos master systemd script
+    template: src=mesos-master.service.j2 dest=/etc/systemd/system/mesos-master.service
+    when: ansible_service_mgr == "systemd"
+    notify:
+    - Reload systemd
+    - Restart mesos-master
+
+  - name: Enable mesos-master service
+    service:
+      name: mesos-master
+      enabled: yes
+
+  - debug:
+      msg: |
+        Forcing restart: {{ force_restart|bool }}
+    notify:
+    - Restart mesos-master
+    when: force_restart|bool
+  when: '"master" in mesos_install_mode'
+
+- block:
+  - name: Mesos Slave config file
+    template: src=conf-mesos-slave.j2 dest=/etc/default/mesos-slave mode=0644 owner=root group=root
+    notify:
     - Cleanup meta/slaves/latest
-
-- name: Mesos Master config file
-  template: src=conf-mesos-master.j2 dest=/etc/default/mesos-master
-  when: mesos_install_mode == "master" or mesos_install_mode == "master-slave"
-  notify:
-    - Restart mesos-master
-
-- name: Mesos Slave config file
-  template: src=conf-mesos-slave.j2 dest=/etc/default/mesos-slave
-  when: mesos_install_mode == "slave" or mesos_install_mode == "master-slave"
-  notify:
     - Restart mesos-slave
+
+  - name: Mesos slave upstart script
+    template: src=init-mesos-slave.j2 dest=/etc/init/mesos-slave.conf
+    when: ansible_service_mgr == "upstart"
+    notify:
     - Cleanup meta/slaves/latest
-
-- name: Mesos master upstart script
-  template: src=init-mesos-master.j2 dest=/etc/init/mesos-master.conf
-  when:
-    - (mesos_install_mode == "master" or mesos_install_mode == "master-slave")
-    - ansible_service_mgr != 'systemd'
-  notify:
-    - Restart mesos-master
-
-- name: Mesos slave upstart script
-  template: src=init-mesos-slave.j2 dest=/etc/init/mesos-slave.conf
-  when:
-    - (mesos_install_mode == "slave" or mesos_install_mode == "master-slave")
-    - ansible_service_mgr != 'systemd'
-  notify:
     - Restart mesos-slave
 
-- name: Check if systemd exists
-  stat: path=/lib/systemd/system/
-  register: systemd_check
-
-- name: Mesos master systemd script
-  template: src=mesos-master.service.j2 dest=/lib/systemd/system/mesos-master.service
-  when: (mesos_install_mode == "master" or mesos_install_mode == "master-slave") and systemd_check.stat.exists == true
-  notify:
-    - Reload daemon
-    - Restart mesos-master
-
-- name: Mesos slave systemd script
-  template: src=mesos-slave.service.j2 dest=/lib/systemd/system/mesos-slave.service
-  when: (mesos_install_mode == "slave" or mesos_install_mode == "master-slave") and systemd_check.stat.exists == true
-  notify:
-    - Reload daemon
+  - name: Mesos slave systemd script
+    template: src=mesos-slave.service.j2 dest=/etc/systemd/system/mesos-slave.service
+    when: ansible_service_mgr == "systemd"
+    notify:
+    - Reload systemd
+    - Cleanup meta/slaves/latest
     - Restart mesos-slave
 
-- name: Enable/Disable mesos-master service
-  service: name=mesos-master enabled="{{ (mesos_install_mode == 'slave') | ternary('no', 'yes') }}"
-  when: systemd_check.stat.exists == true
+  - name: Enable mesos-slave service
+    service:
+      name: mesos-slave
+      enabled: yes
 
-- name: Enable/Disable mesos-slave service
-  service: name=mesos-slave enabled="{{ (mesos_install_mode == 'master') | ternary('no', 'yes') }}"
-  when: systemd_check.stat.exists == true
+  - debug:
+      msg: |
+        Forcing restart: {{ force_restart|bool }}
+    notify:
+    - Cleanup meta/slaves/latest
+    - Restart mesos-slave
+    when: force_restart|bool
+  when: '"slave" in mesos_install_mode'
+
+- name: Flush handlers
+  meta: flush_handlers
+
+- name: Start mesos-master service if it has not been started yet
+  service:
+    name: mesos-master
+    state: started
+  when: '"master" in mesos_install_mode'
+
+- name: Start mesos-slave service if it has not been started yet
+  service:
+    name: mesos-slave
+    state: started
+  when: '"slave" in mesos_install_mode'

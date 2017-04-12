@@ -45,7 +45,7 @@ script:
   - 'sudo docker exec --tty "$(cat ${container_id})" env TERM=xterm ansible all -i "localhost," -c local -m setup'
 
   # Install dependencies
-  - 'sudo docker exec --tty "$(cat ${container_id})" env TERM=xterm ansible-galaxy install geerlingguy.java'
+  - 'sudo docker exec --tty "$(cat ${container_id})" env TERM=xterm ansible-galaxy install geerlingguy.java,1.7.4'
   - 'sudo docker exec --tty "$(cat ${container_id})" env TERM=xterm ansible-galaxy install AnsibleShipyard.ansible-zookeeper'
   - 'sudo docker exec --tty "$(cat ${container_id})" env TERM=xterm ansible-playbook /etc/ansible/roles/role_under_test/tests/dependencies.yml'
 
@@ -53,11 +53,13 @@ script:
   - 'sudo docker exec --tty "$(cat ${container_id})" env TERM=xterm ansible-playbook /etc/ansible/roles/role_under_test/tests/playbook.yml --syntax-check'
 
   # Test role.
-  - 'sudo docker exec --tty "$(cat ${container_id})" env TERM=xterm ansible-playbook /etc/ansible/roles/role_under_test/tests/playbook.yml'
+  # Docker containerizer is not available during testing.  Hence -e mesos_containerizers=mesos.
+  - 'sudo docker exec --tty "$(cat ${container_id})" env TERM=xterm ansible-playbook -v /etc/ansible/roles/role_under_test/tests/playbook.yml -e mesos_containerizers=mesos'
 
   # Test role idempotence.
+  # Docker containerizer is not available during testing.  Hence -e mesos_containerizers=mesos.
   - idempotence=$(mktemp)
-  - sudo docker exec "$(cat ${container_id})" ansible-playbook /etc/ansible/roles/role_under_test/tests/playbook.yml | tee -a ${idempotence}
+  - sudo docker exec "$(cat ${container_id})" ansible-playbook /etc/ansible/roles/role_under_test/tests/playbook.yml -e mesos_containerizers=mesos | tee -a ${idempotence}
   - >
     tail ${idempotence}
     | grep -q 'changed=0.*failed=0'
