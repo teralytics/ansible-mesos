@@ -1,7 +1,5 @@
 ---
-
-# While waiting for https://github.com/ansible/ansible-modules-core/issues/191
-- name: Reload daemon
+- name: Reload systemd
   command: systemctl --system daemon-reload
   when: ansible_service_mgr == 'systemd'
 
