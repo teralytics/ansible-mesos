@@ -1,6 +1,21 @@
 ---
-- name: Add apt-key
-  apt_key: id=E56151BF keyserver=keyserver.ubuntu.com state=present
+- name: Add apt-key (keyserver)
+  apt_key: 
+    id: "{{ mesos_apt_key_id }}"
+    keyserver: "{{ mesos_apt_key_server }}"
+    state: present
+  when:
+    - mesos_apt_key_id and mesos_apt_key_server
+    - mesos_apt_key_url is not defined
+
+- name: Add apt-key (url)
+  apt_key: 
+    id: "{{ mesos_apt_key_id }}"
+    url: "{{ mesos_apt_key_url }}"
+    state: present
+  when:
+    - mesos_apt_key_id and mesos_apt_key_url
+    - mesos_apt_key_url is defined
 
 - name: Add mesosphere repo
   apt_repository: repo='deb {{ mesosphere_apt_url }} {{ ansible_distribution_release | lower }} main' state=present update_cache=yes
